@@ -1,0 +1,11 @@
+*.zip
+*.jpg
+*.png
+
+img/
+freeze-*
+persistable-*
+logs
+*_ckpt
+*cache*
+ResNet50_pretrained
