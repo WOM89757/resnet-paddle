@@ -2,6 +2,7 @@
 from train import *
 from resNet50 import *
 import logging
+from visualdl import LogWriter
 
 def resize_img(img, target_size):
     """
@@ -288,6 +289,9 @@ def train():
                                 drop_last=True)
     place = fluid.CUDAPlace(0) if train_parameters['use_gpu'] else fluid.CPUPlace()
     # 定义输入数据的占位符
+
+    paddle.enable_static()
+    
     img = fluid.layers.data(name='img', shape=train_parameters['input_size'], dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
     feeder = fluid.DataFeeder(feed_list=[img, label], place=place)
@@ -300,10 +304,10 @@ def train():
     avg_cost = fluid.layers.mean(x=cost)
     acc_top1 = fluid.layers.accuracy(input=out, label=label, k=1)
     # 选取不同的优化器
-    # optimizer = optimizer_rms_setting()
+    optimizer = optimizer_rms_setting()
     # optimizer = optimizer_momentum_setting()
     # optimizer = optimizer_sgd_setting()
-    optimizer = optimizer_adam_setting()
+    # optimizer = optimizer_adam_setting()
     optimizer.minimize(avg_cost)
     exe = fluid.Executor(place)
 
@@ -330,6 +334,13 @@ def train():
                                           feed=feeder.feed(data),
                                           fetch_list=train_fetch_list)
             t2 = time.time()
+
+            # 在`./log/train`路径下建立日志文件
+            with LogWriter(logdir="./log/" + train_parameters['save_freeze_dir'].rsplit("/", 1)[1]) as writer:
+                # 使用scalar组件记录一个标量数据
+                writer.add_scalar(tag="acc", step=step_id, value=acc1)
+                writer.add_scalar(tag="loss", step=step_id, value=loss)
+
             batch_id += 1
             total_batch_count += 1
             period = t2 - t1

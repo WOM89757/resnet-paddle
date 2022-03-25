@@ -26,19 +26,19 @@ train_parameters = {
     "class_dim": -1,  # 分类数，会在初始化自定义 reader 的时候获得
     "image_count": -1,  # 训练图片数量，会在初始化自定义 reader 的时候获得
     "label_dict": {},
-    "data_dir": "../../dataset/zhedang_photos/",  # 训练数据存储地址
+    "data_dir": "../datasets/img1.1/",  # 训练数据存储地址
     "train_file_list": "train.txt",
     "label_file": "label_list.txt",
-    "save_freeze_dir": "./freeze-model-zhedang",
-    "save_persistable_dir": "./persistable-params-zhedang",
+    "save_freeze_dir": "./freeze-model-zhedang-1.1.3",
+    "save_persistable_dir": "./persistable-params-zhedang-1.1.3",
     "continue_train": True,        # 是否接着上一次保存的参数接着训练，优先级高于预训练模型
     "pretrained": True,            # 是否使用预训练的模型
     "pretrained_dir": "./ResNet50_pretrained", 
     "mode": "train",
     "num_epochs": 100,
-    "train_batch_size": 12,
+    "train_batch_size": 24,
     "mean_rgb": [127.5, 127.5, 127.5],  # 常用图片的三通道均值，通常来说需要先对训练数据做统计，此处仅取中间值
-    "use_gpu": False,
+    "use_gpu": True,
     "image_enhance_strategy": {  # 图像增强相关策略
         "need_distort": True,  # 是否启用图像颜色增强
         "need_rotate": True,   # 是否需要增加随机角度
@@ -56,7 +56,7 @@ train_parameters = {
     "early_stop": {
         "sample_frequency": 50,
         "successive_limit": 3,
-        "good_acc1": 0.92
+        "good_acc1": 0.96
     },
     "rsm_strategy": {
         "learning_rate": 0.002,

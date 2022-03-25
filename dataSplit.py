@@ -6,7 +6,7 @@ from PIL import Image
 
 train_ratio = 4.0 / 5
 
-all_file_dir = '../../dataset/zhedang_photos/'
+all_file_dir = '../datasets/img1.1/'
 
 class_list = [c for c in os.listdir(all_file_dir) if os.path.isdir(os.path.join(all_file_dir, c)) and not c.endswith('Set') and not c.startswith('.')]
 class_list.sort()

@@ -6,6 +6,7 @@ img/
 freeze-*
 persistable-*
 logs
+log
 *_ckpt
 *cache*
 ResNet50_pretrained

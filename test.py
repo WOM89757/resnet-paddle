@@ -15,15 +15,17 @@ import paddle.fluid as fluid
 from paddle.fluid import core
 from paddle.fluid.param_attr import ParamAttr
 from PIL import Image, ImageEnhance
+import argparse
+import matplotlib.pyplot as plt
 
 target_size = [3, 224, 224]
 mean_rgb = [127.5, 127.5, 127.5]
-data_dir = "../datasets/img1.1/"
+data_dir = "../datasets/img1.0/"
 eval_file = "eval.txt"
-use_gpu = False
+use_gpu = True
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
-save_freeze_dir = "./freeze-model-zhedang-1.1.3"
+save_freeze_dir = "./freeze-model-zhedang-1.1"
 paddle.enable_static()
 [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(dirname=save_freeze_dir, executor=exe)
 # print(fetch_targets)
@@ -56,30 +58,29 @@ def read_image(img_path):
     img = img[np.newaxis,:]
     return img
 
+def show_image(img_path):
+    img = Image.open(img_path)
+    plt.figure(img_path)
+    plt.imshow(img)
+    plt.show()
 
 def infer(image_path):
     tensor_img = read_image(image_path)
     label = exe.run(inference_program, feed={feed_target_names[0]: tensor_img}, fetch_list=fetch_targets)
+    print(label)
     return np.argmax(label)
 
-
-def eval_all():
-    eval_file_path = os.path.join(data_dir, eval_file)
-    total_count = 0
-    right_count = 0
-    with codecs.open(eval_file_path, encoding='utf-8') as flist: 
-        lines = [line.strip() for line in flist]
-        t1 = time.time()
-        for line in lines:
-            total_count += 1
-            parts = line.strip().split()
-            result = infer(parts[0])
-            # print("infer result:{0} answer:{1}".format(result, parts[1]))
-            if str(result) == parts[1]:
-                right_count += 1
-        period = time.time() - t1
-        print("total eval count:{0} cost time:{1} predict accuracy:{2}".format(total_count, "%2.2f sec" % period, right_count / total_count))
-
-
 if __name__ == '__main__':
-    eval_all()
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'img_path', default='img/test.jpg', type=str, help='file path of test img')
+    args = parser.parse_args()
+    result = infer(args.img_path)
+    print('predict result is ' + str(result))
+    show_image(args.img_path)
+
+
+# 0	dropframes
+# 1	zhechang
+# 2	zhedang
