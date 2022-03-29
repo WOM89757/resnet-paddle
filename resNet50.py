@@ -1,6 +1,8 @@
 from utils import *
 from train import *
-
+from paddle.fluid.initializer import MSRA
+from paddle.fluid.initializer import Uniform
+from paddle.fluid.param_attr import ParamAttr
 
 class ResNet(object):
     """

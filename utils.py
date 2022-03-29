@@ -6,7 +6,9 @@ import paddle
 import paddle.fluid as fluid
 import codecs
 import logging
-from train import *
+
+from PIL import Image
+from PIL import ImageEnhance
 
 def resize_img(img, target_size):
     """
@@ -15,12 +17,12 @@ def resize_img(img, target_size):
     :param target_size:
     :return:
     """
-    target_size = input_size
+    # target_size = input_size
     img = img.resize((target_size[1], target_size[2]), Image.BILINEAR)
     return img
 
 
-def random_crop(img, scale=[0.08, 1.0], ratio=[3. / 4., 4. / 3.]):
+def random_crop(img, scale=[0.08, 1.0], ratio=[3. / 4., 4. / 3.], train_parameters=''):
     aspect_ratio = math.sqrt(np.random.uniform(*ratio))
     w = 1. * aspect_ratio
     h = 1. / aspect_ratio
@@ -53,7 +55,7 @@ def rotate_image(img):
     return img
 
 
-def random_brightness(img):
+def random_brightness(img, train_parameters):
     """
     图像增强，亮度调整
     :param img:
@@ -67,7 +69,7 @@ def random_brightness(img):
     return img
 
 
-def random_contrast(img):
+def random_contrast(img, train_parameters):
     """
     图像增强，对比度调整
     :param img:
@@ -81,7 +83,7 @@ def random_contrast(img):
     return img
 
 
-def random_saturation(img):
+def random_saturation(img, train_parameters):
     """
     图像增强，饱和度调整
     :param img:
@@ -95,7 +97,7 @@ def random_saturation(img):
     return img
 
 
-def random_hue(img):
+def random_hue(img, train_parameters):
     """
     图像增强，色度调整
     :param img:
@@ -111,7 +113,7 @@ def random_hue(img):
     return img
 
 
-def distort_color(img):
+def distort_color(img, train_parameters):
     """
     概率的图像增强
     :param img:
@@ -120,19 +122,19 @@ def distort_color(img):
     prob = np.random.uniform(0, 1)
     # Apply different distort order
     if prob < 0.35:
-        img = random_brightness(img)
-        img = random_contrast(img)
-        img = random_saturation(img)
-        img = random_hue(img)
+        img = random_brightness(img, train_parameters)
+        img = random_contrast(img, train_parameters)
+        img = random_saturation(img, train_parameters)
+        img = random_hue(img, train_parameters)
     elif prob < 0.7:
-        img = random_brightness(img)
-        img = random_saturation(img)
-        img = random_hue(img)
-        img = random_contrast(img)
+        img = random_brightness(img, train_parameters)
+        img = random_saturation(img, train_parameters)
+        img = random_hue(img, train_parameters)
+        img = random_contrast(img, train_parameters)
     return img
 
 
-def custom_image_reader(file_list, data_dir, mode):
+def custom_image_reader(file_list, data_dir, mode, train_parameters):
     """
     自定义用户图片读取器，先初始化图片种类，数量
     :param file_list:
@@ -146,18 +148,20 @@ def custom_image_reader(file_list, data_dir, mode):
     def reader():
         np.random.shuffle(lines)
         for line in lines:
+            # print(line)
             if mode == 'train' or mode == 'val':
                 img_path, label = line.split()
                 img = Image.open(img_path)
                 try:
                     if img.mode != 'RGB':
-                        img = img.convert('RGB')
+                        img = img.convert('RGB')                    
                     if train_parameters['image_enhance_strategy']['need_distort'] == True:
-                        img = distort_color(img)
+                        img = distort_color(img, train_parameters)      
                     if train_parameters['image_enhance_strategy']['need_rotate'] == True:
-                        img = rotate_image(img)
+                        img = rotate_image(img)       
+                    
                     if train_parameters['image_enhance_strategy']['need_crop'] == True:
-                        img = random_crop(img, train_parameters['input_size'])
+                        img = random_crop(img, train_parameters=train_parameters)
                     if train_parameters['image_enhance_strategy']['need_flip'] == True:
                         mirror = int(np.random.uniform(0, 2))
                         if mirror == 1:
@@ -166,7 +170,7 @@ def custom_image_reader(file_list, data_dir, mode):
                     img = np.array(img).astype('float32')
                     img -= train_parameters['mean_rgb']
                     img = img.transpose((2, 0, 1))  # HWC to CHW
-                    img *= 0.007843                 # 像素值归一化
+                    img *= 0.007843    # 像素值归一化
                     yield img, int(label)
                 except Exception as e:
                     pass                            # 以防某些图片读取处理出错，加异常处理
@@ -186,7 +190,7 @@ def custom_image_reader(file_list, data_dir, mode):
     return reader
 
 
-def optimizer_momentum_setting():
+def optimizer_momentum_setting(train_parameters):
     """
     阶梯型的学习率适合比较大规模的训练数据
     """
@@ -202,7 +206,7 @@ def optimizer_momentum_setting():
     return optimizer
 
 
-def optimizer_rms_setting():
+def optimizer_rms_setting(train_parameters):
     """
     阶梯型的学习率适合比较大规模的训练数据
     """
@@ -220,7 +224,7 @@ def optimizer_rms_setting():
     return optimizer
 
 
-def optimizer_sgd_setting():
+def optimizer_sgd_setting(train_parameters):
     """
     loss下降相对较慢，但是最终效果不错，阶梯型的学习率适合比较大规模的训练数据
     """
@@ -236,7 +240,7 @@ def optimizer_sgd_setting():
     return optimizer
 
 
-def optimizer_adam_setting():
+def optimizer_adam_setting(train_parameters):
     """
     能够比较快速的降低 loss，但是相对后期乏力
     """
@@ -245,7 +249,30 @@ def optimizer_adam_setting():
     optimizer = fluid.optimizer.Adam(learning_rate=learning_rate)
     return optimizer
 
-def load_params(exe, program):
+
+def init_log_config():
+    """
+    初始化日志相关配置
+    :return:
+    """
+    global logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    log_path = os.path.join(os.getcwd(), 'logs')
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+    log_name = os.path.join(log_path, 'train.log')
+    sh = logging.StreamHandler()
+    fh = logging.FileHandler(log_name, mode='w')
+    fh.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
+    fh.setFormatter(formatter)
+    sh.setFormatter(formatter)
+    logger.addHandler(sh)
+    logger.addHandler(fh)
+    return logger
+
+def load_params(exe, program, train_parameters):
     if train_parameters['continue_train'] and os.path.exists(train_parameters['save_persistable_dir']):
         logger.info('load params from retrain model')
         fluid.io.load_persistables(executor=exe,
