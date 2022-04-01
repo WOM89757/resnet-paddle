@@ -10,3 +10,4 @@ log
 *_ckpt
 *cache*
 ResNet50_pretrained
+model/*

@@ -21,7 +21,7 @@ from eval import read_image
 use_gpu = True
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
-save_freeze_dir = "./freeze-model-zhedang-2.2"
+save_freeze_dir = "./freeze-model-zhedang-2.3"
 paddle.enable_static()
 [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(dirname=save_freeze_dir, executor=exe)
 # print(fetch_targets)
@@ -53,3 +53,7 @@ if __name__ == '__main__':
 # 2	dropframes
 # 3	zhechang
 # 4	zhedang
+
+#2.3
+# 0	exception
+# 1	zhechang
