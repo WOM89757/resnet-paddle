@@ -51,3 +51,14 @@ python dataSplit.py
 ```bash
 python main.py
 ```
+## 模型测试
+
+```bash
+python test.py /home/wangmao/code/datasets/img2.3/evalImageSet/exception_image_251.jpg
+```
+
+## 模型转换
+
+```bash
+paddle2onnx --model_dir freeze-model-zhedang-2.3.1/  --save_file model/test.onnx --opset_version 10 --enable_onnx_checker True
+```

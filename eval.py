@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from cProfile import label
 
 import os
 import numpy as np
@@ -18,12 +19,14 @@ from PIL import Image, ImageEnhance
 
 target_size = [3, 224, 224]
 mean_rgb = [127.5, 127.5, 127.5]
-data_dir = "../datasets/img2.3.1/"
+data_dir = "../datasets/img3.1/"
 eval_file = "eval.txt"
+label_file = "label_list.txt"
 use_gpu = False
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
-save_freeze_dir = "./freeze-model-zhedang-2.3.1"
+save_freeze_dir = "./freeze-model-qc-1.1"
+# save_freeze_dir = "./freeze-model-zhedang-2.3"
 paddle.enable_static()
 [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(dirname=save_freeze_dir, executor=exe)
 # print(fetch_targets)
@@ -65,27 +68,18 @@ def infer(image_path):
 
 def eval_all():
     eval_file_path = os.path.join(data_dir, eval_file)
-    total_count = 0
+    label_file_path = os.path.join(data_dir, label_file)
+
+    label_dict = {}
+    label_count = {}
+    label_right_count = {}
     right_count = 0
-
-
-    chaidi_count = 0
-    chaotian_count = 0
-    dropframes_count = 0
-    zhechang_count = 0
-    zhedang_count = 0
-
-    chaidi_right_count = 0
-    chaotian_right_count = 0
-    dropframes_right_count = 0
-    zhechang_right_count = 0
-    zhedang_right_count = 0
-
-# 0	chaodi
-# 1	chaotian
-# 2	dropframes
-# 3	zhechang
-# 4	zhedang
+    total_count = 0
+    for line in open(label_file_path):
+        s = line.splitlines()[0].split('\t')
+        label_dict[s[0]] = s[1]
+        label_right_count[s[0]] = 0
+    # print(label_dict)
 
     with codecs.open(eval_file_path, encoding='utf-8') as flist:
         lines = [line.strip() for line in flist]
@@ -99,43 +93,35 @@ def eval_all():
 
             result = infer(parts[0])
             # print("infer result:{0} answer:{1}".format(result, parts[1]))
-            if parts[1] == '0':
-                chaidi_count += 1
-            elif parts[1] == '1':
-                chaotian_count += 1
-            elif parts[1] == '2':
-                dropframes_count += 1
-            elif parts[1] == '3':
-                zhechang_count += 1
-            elif parts[1] == '4':
-                zhedang_count += 1
-            
+            if parts[1] in label_count:
+                label_count[parts[1]] = label_count[parts[1]] + 1
+            else :
+                label_count[parts[1]] = 1
+            # print(label_count)
             if str(result) == parts[1]:
                 right_count += 1
-                if parts[1] == '0':
-                    chaidi_right_count += 1
-                elif parts[1] == '1':
-                    chaotian_right_count += 1
-                elif parts[1] == '2':
-                    dropframes_right_count += 1
-                elif parts[1] == '3':
-                    zhechang_right_count += 1
-                elif parts[1] == '4':
-                    zhedang_right_count += 1
+                if parts[1] in label_right_count:
+                    label_right_count[parts[1]] = label_right_count[parts[1]] + 1
+                else :
+                    label_right_count[parts[1]] = 1
+
         period = time.time() - t1
         print("total eval count:{0} cost time:{1} predict accuracy:{2}".format(total_count, "%2.2f sec" % period, right_count / total_count))
-        print("class 0 exception: eval count:{0}/{1} predict accuracy:{2}".format(chaidi_right_count, chaidi_count, chaidi_right_count / chaidi_count))
-        print("class 1 zhechang: eval count:{0}/{1} predict accuracy:{2}".format(chaotian_right_count, chaotian_count, chaotian_right_count / chaotian_count))
-
-        # print("class 0 chaodi: eval count:{0}/{1} predict accuracy:{2}".format(chaidi_right_count, chaidi_count, chaidi_right_count / chaidi_count))
-        # print("class 1 chaotian: eval count:{0}/{1} predict accuracy:{2}".format(chaotian_right_count, chaotian_count, chaotian_right_count / chaotian_count))
-        # print("class 2 dropframes: eval count:{0}/{1} predict accuracy:{2}".format(dropframes_right_count, dropframes_count, dropframes_right_count / dropframes_count))
-        # print("class 3 zhechang: eval count:{0}/{1} predict accuracy:{2}".format(zhechang_right_count, zhechang_count, zhechang_right_count / zhechang_count))
-        # print("class 4 zhedang: eval count:{0}/{1} predict accuracy:{2}".format(zhedang_right_count, zhedang_count, zhedang_right_count / zhedang_count))
-
+        for iter in label_dict:
+            print("class {3} {4}: eval count:{0}/{1} predict accuracy:{2}".format(label_right_count[iter], label_count[iter], label_right_count[iter] / label_count[iter], iter, label_dict[iter]))
 
 if __name__ == '__main__':
     eval_all()
+# qc 1.1
+# 0	diuzhen01
+# 1	diuzhen02
+# 2	diuzhen03
+# 3	zhedang01
+# 4	zhedang02
+# 5	zhedang03
+# 6	zhedang04
+
+
 #2.2
 # 0	chaodi
 # 1	chaotian
@@ -146,3 +132,12 @@ if __name__ == '__main__':
 #2.3
 # 0	exception
 # 1	zhechang
+
+#2.4 yichang1.0
+# 0	chaodi
+# 1	dropframes
+# 2	zhedang
+
+#2.5 yichang1.1
+# 0	dropframes
+# 1	zhedang

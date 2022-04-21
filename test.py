@@ -21,7 +21,10 @@ from eval import read_image
 use_gpu = True
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
-save_freeze_dir = "./freeze-model-zhedang-2.3"
+save_freeze_dir = "./freeze-model-qc-1.1"
+# save_freeze_dir = "./freeze-model-zhedang-2.3"
+# save_freeze_dir = "./freeze-model-zhedang-2.3.1"
+# save_freeze_dir = "./freeze-model-zhedang-2.4"
 paddle.enable_static()
 [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(dirname=save_freeze_dir, executor=exe)
 # print(fetch_targets)
@@ -48,6 +51,16 @@ if __name__ == '__main__':
     print('predict result is ' + str(result))
     show_image(args.img_path)
 
+
+# qc 1.1
+# 0	diuzhen01
+# 1	diuzhen02
+# 2	diuzhen03
+# 3	zhedang01
+# 4	zhedang02
+# 5	zhedang03
+# 6	zhedang04
+
 # 0	chaodi
 # 1	chaotian
 # 2	dropframes
@@ -57,3 +70,8 @@ if __name__ == '__main__':
 #2.3
 # 0	exception
 # 1	zhechang
+
+#yichang 1.0
+# 0	chaodi
+# 1	dropframes
+# 2	zhedang
