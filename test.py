@@ -21,7 +21,7 @@ from eval import read_image
 use_gpu = True
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
-save_freeze_dir = "./freeze-model-qc-1.1"
+save_freeze_dir = "./freeze-model-qc-1.2"
 # save_freeze_dir = "./freeze-model-zhedang-2.3"
 # save_freeze_dir = "./freeze-model-zhedang-2.3.1"
 # save_freeze_dir = "./freeze-model-zhedang-2.4"

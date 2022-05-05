@@ -14,7 +14,7 @@ import math
 import paddle
 import paddle.fluid as fluid
 import codecs
-from resNet50 import *
+from resNet50 import ResNet
 from visualdl import LogWriter
 
 from utils import *
@@ -25,11 +25,11 @@ train_parameters = {
     "class_dim": -1,  # 分类数，会在初始化自定义 reader 的时候获得
     "image_count": -1,  # 训练图片数量，会在初始化自定义 reader 的时候获得
     "label_dict": {},
-    "data_dir": "../datasets/img3.1/",  # 训练数据存储地址
+    "data_dir": "../datasets/img3.2/",  # 训练数据存储地址
     "train_file_list": "train.txt",
     "label_file": "label_list.txt",
-    "save_freeze_dir": "./freeze-model-qc-1.1",
-    "save_persistable_dir": "./persistable-params-qc-1.1",
+    "save_freeze_dir": "./freeze-model-qc-1.2",
+    "save_persistable_dir": "./persistable-params-qc-1.2",
     "continue_train": True,        # 是否接着上一次保存的参数接着训练，优先级高于预训练模型
     "pretrained": True,            # 是否使用预训练的模型
     "pretrained_dir": "./ResNet50_pretrained",

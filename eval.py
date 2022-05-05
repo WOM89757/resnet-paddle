@@ -19,13 +19,14 @@ from PIL import Image, ImageEnhance
 
 target_size = [3, 224, 224]
 mean_rgb = [127.5, 127.5, 127.5]
-data_dir = "../datasets/img3.1/"
+data_dir = "../datasets/img3.2/"
 eval_file = "eval.txt"
 label_file = "label_list.txt"
 use_gpu = False
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
-save_freeze_dir = "./freeze-model-qc-1.1"
+save_freeze_dir = "./freeze-model-qc-1.2"
+# save_freeze_dir = "./freeze-model-yichang-1.1"
 # save_freeze_dir = "./freeze-model-zhedang-2.3"
 paddle.enable_static()
 [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(dirname=save_freeze_dir, executor=exe)
