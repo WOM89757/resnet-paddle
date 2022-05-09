@@ -28,8 +28,8 @@ train_parameters = {
     "data_dir": "../datasets/img3.2/",  # 训练数据存储地址
     "train_file_list": "train.txt",
     "label_file": "label_list.txt",
-    "save_freeze_dir": "./freeze-model-qc-1.2",
-    "save_persistable_dir": "./persistable-params-qc-1.2",
+    "save_freeze_dir": "./freeze-model-qc-1.2.1",
+    "save_persistable_dir": "./persistable-params-qc-1.2.1",
     "continue_train": True,        # 是否接着上一次保存的参数接着训练，优先级高于预训练模型
     "pretrained": True,            # 是否使用预训练的模型
     "pretrained_dir": "./ResNet50_pretrained",
@@ -122,6 +122,9 @@ def train(logger):
     model = ResNet()
     out = model.net(input=img, class_dim=train_parameters['class_dim'])
     cost = fluid.layers.cross_entropy(out, label)
+    # print(out)
+    # print(label)
+    # cost = fluid.layers.sigmoid_cross_entropy_with_logits(out, label, ignore_index=-1, normalize=True)
     avg_cost = fluid.layers.mean(x=cost)
     acc_top1 = fluid.layers.accuracy(input=out, label=label, k=1)
     

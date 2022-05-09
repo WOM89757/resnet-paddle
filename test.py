@@ -21,6 +21,8 @@ from eval import read_image
 use_gpu = True
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
+data_dir = "../datasets/img3.2/"
+label_file = "label_list.txt"
 save_freeze_dir = "./freeze-model-qc-1.2"
 # save_freeze_dir = "./freeze-model-zhedang-2.3"
 # save_freeze_dir = "./freeze-model-zhedang-2.3.1"
@@ -40,15 +42,21 @@ def infer(image_path):
     label = exe.run(inference_program, feed={feed_target_names[0]: tensor_img}, fetch_list=fetch_targets)
     np.set_printoptions(suppress=True)
     print(label)
-    return np.argmax(label)
+    return np.argmax(label), label[0][0][np.argmax(label)]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'img_path', default='img/test.jpg', type=str, help='file path of test img')
     args = parser.parse_args()
-    result = infer(args.img_path)
-    print('predict result is ' + str(result))
+    label_dict = {}
+    label_file_path = os.path.join(data_dir, label_file)
+    for line in open(label_file_path):
+        s = line.splitlines()[0].split('\t')
+        label_dict[s[0]] = s[1]
+
+    result_label, result = infer(args.img_path)
+    print('predict result is ' + str(result_label) + ' ' + label_dict[str(result_label)] + ': ' + str(result))
     show_image(args.img_path)
 
 
