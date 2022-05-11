@@ -18,6 +18,7 @@ from resNet50 import ResNet
 from visualdl import LogWriter
 
 from utils import *
+from eval import eval_all
 
 
 train_parameters = {
@@ -25,7 +26,7 @@ train_parameters = {
     "class_dim": -1,  # 分类数，会在初始化自定义 reader 的时候获得
     "image_count": -1,  # 训练图片数量，会在初始化自定义 reader 的时候获得
     "label_dict": {},
-    "data_dir": "../datasets/img3.2/",  # 训练数据存储地址
+    "data_dir": "../datasets/img3.2.1/",  # 训练数据存储地址
     "train_file_list": "train.txt",
     "label_file": "label_list.txt",
     "save_freeze_dir": "./freeze-model-qc-1.2.1",
@@ -80,7 +81,6 @@ train_parameters = {
 
 def init_train_parameters():
     """
-    初始化训练参数，主要是初始化图片数量，类别数
     :return:
     """
     train_file_list = os.path.join(train_parameters['data_dir'], train_parameters['train_file_list'])
@@ -109,7 +109,6 @@ def train(logger):
                                 batch_size=train_parameters['train_batch_size'],
                                 drop_last=True)
     place = fluid.CUDAPlace(0) if train_parameters['use_gpu'] else fluid.CPUPlace()
-    # 定义输入数据的占位符
 
     paddle.enable_static()
     
@@ -117,7 +116,6 @@ def train(logger):
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
     feeder = fluid.DataFeeder(feed_list=[img, label], place=place)
 
-    # 选取不同的网络
     logger.info("build newwork")
     model = ResNet()
     out = model.net(input=img, class_dim=train_parameters['class_dim'])
@@ -128,7 +126,6 @@ def train(logger):
     avg_cost = fluid.layers.mean(x=cost)
     acc_top1 = fluid.layers.accuracy(input=out, label=label, k=1)
     
-    # 选取不同的优化器
     # optimizer = optimizer_rms_setting(train_parameters)
     # optimizer = optimizer_momentum_setting(train_parameters)
     # optimizer = optimizer_sgd_setting(train_parameters)
@@ -142,7 +139,6 @@ def train(logger):
     
     load_params(exe, main_program, train_parameters)
 
-    # 训练循环主体
     stop_strategy = train_parameters['early_stop']
     successive_limit = stop_strategy['successive_limit']
     sample_freq = stop_strategy['sample_frequency']
@@ -150,41 +146,34 @@ def train(logger):
     successive_count = 0
     stop_train = False
     total_batch_count = 0
+    best_acc = 0.95
+
     for pass_id in range(train_parameters["num_epochs"]):
         logger.info("current pass: %d, start read image", pass_id)
         batch_id = 0
+        epoch_acc = []
+        epoch_loss = []
         for step_id, data in enumerate(batch_reader()):
             t1 = time.time()
             loss, acc1, pred_ot = exe.run(main_program,
                                           feed=feeder.feed(data),
                                           fetch_list=train_fetch_list)
+            # label = exe.run(inference_program, feed={feed_target_names[0]: tensor_img}, fetch_list=fetch_targets)
+            
             t2 = time.time()
-
             batch_id += 1
             total_batch_count += 1
             period = t2 - t1
             loss = np.mean(np.array(loss))
             acc1 = np.mean(np.array(acc1))
-
-            # 在`./log/train`路径下建立日志文件
-            with LogWriter(logdir="./log/" + train_parameters['save_freeze_dir'].rsplit("/", 1)[1]) as writer:
-                # 使用scalar组件记录一个标量数据
-                s_id = pass_id * 45 + batch_id
-                writer.add_scalar(tag="epoch_acc", step=s_id, value=acc1)
-                writer.add_scalar(tag="epoch_loss", step=s_id, value=loss)
+            epoch_acc.append(acc1)
+            epoch_loss.append(loss)
 
             # print(batch_id, '-', step_id)
             if batch_id % 10 == 0:
                 logger.info("Pass {0}, trainbatch {1}, loss {2}, acc1 {3}, time {4}".format(pass_id, batch_id, loss, acc1,
                                                                                             "%2.2f sec" % period))
-                # # 在`./log/train`路径下建立日志文件
-                # with LogWriter(logdir="./log/" + train_parameters['save_freeze_dir'].rsplit("/", 1)[1]) as writer:
-                #     # 使用scalar组件记录一个标量数据
-                #     s_id = pass_id * 45 + batch_id
-                #     writer.add_scalar(tag="epoch_acc", step=s_id, value=acc1)
-                #     writer.add_scalar(tag="epoch_loss", step=s_id, value=loss)
                     
-            # 简单的提前停止策略，认为连续达到某个准确率就可以停止了
             if acc1 >= good_acc1:
                 successive_count += 1
                 logger.info("current acc1 {0} meets good {1}, successive count {2}".format(acc1, good_acc1, successive_count))
@@ -194,19 +183,46 @@ def train(logger):
                                               main_program=main_program,
                                               executor=exe)
                 if successive_count >= successive_limit:
-                    logger.info("end training")
-                    stop_train = True
-                    break
+                    logger.info('start eval all test data:')
+                    eval_acc = eval_all()
+                    logger.info('end  eval all test data, eval acc is {}'.format(eval_acc))
+                    if eval_acc > 0.8:
+                        logger.info("end training")
+                        stop_train = True
+                        break
+                    else:
+                        successive_count = 0
+                    # logger.info("end training")
+                    # stop_train = True
+                    # break
             else:
                 successive_count = 0
 
-            # 通用的保存策略，减小意外停止的损失
             if total_batch_count % sample_freq == 0:
                 logger.info("temp save {0} batch train result, current acc1 {1}".format(total_batch_count, acc1))
                 fluid.io.save_persistables(dirname=train_parameters['save_persistable_dir'],
                                            main_program=main_program,
                                            executor=exe)
+            if acc1 > best_acc:
+                best_acc = acc1
+                logger.info("best save {0} batch train result, current acc1 {1}".format(total_batch_count, acc1))
+                best_model_name = '{}-best-acc-{}-loss-{}'.format(train_parameters['save_persistable_dir'], acc1, loss)
+                print(best_model_name)
+                # fluid.io.save_persistables(dirname=best_model_name,
+                #                            main_program=main_program,
+                #                            executor=exe)
+                # fluid.io.save_inference_model(dirname=train_parameters['save_freeze_dir'],
+                #                             feeded_var_names=['img'],
+                #                             target_vars=[out],
+                #                             main_program=main_program,
+                #                             executor=exe)
 
+
+        epoch_loss = np.mean(np.array(epoch_loss))
+        epoch_acc = np.mean(np.array(epoch_acc))
+        with LogWriter(logdir="./log/" + train_parameters['save_freeze_dir'].rsplit("/", 1)[1]) as writer:
+            writer.add_scalar(tag="epoch_acc", step=pass_id, value=epoch_acc)
+            writer.add_scalar(tag="epoch_loss", step=pass_id, value=epoch_loss)
         if stop_train:
             break
 

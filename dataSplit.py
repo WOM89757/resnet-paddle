@@ -8,7 +8,7 @@ from PIL import Image
 
 train_ratio = 4.0 / 5
 
-dir_class = '../datasets/img3.2/'
+dir_class = '../datasets/img3.2.1/'
 
 train_image_dir = os.path.join(dir_class, "trainImageSet")
 if not os.path.exists(train_image_dir):

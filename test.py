@@ -21,9 +21,9 @@ from eval import read_image
 use_gpu = True
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
-data_dir = "../datasets/img3.2/"
+data_dir = "../datasets/img3.2.1/"
 label_file = "label_list.txt"
-save_freeze_dir = "./freeze-model-qc-1.2"
+save_freeze_dir = "./freeze-model-qc-1.2.1"
 # save_freeze_dir = "./freeze-model-zhedang-2.3"
 # save_freeze_dir = "./freeze-model-zhedang-2.3.1"
 # save_freeze_dir = "./freeze-model-zhedang-2.4"
