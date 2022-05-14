@@ -16,13 +16,14 @@ from PIL import Image, ImageEnhance
 import argparse
 import matplotlib.pyplot as plt
 
-from eval import read_image
+from eval import read_image, infer
 
 use_gpu = True
 place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
 exe = fluid.Executor(place)
 data_dir = "../datasets/img3.2.1/"
 label_file = "label_list.txt"
+# save_freeze_dir = "./freeze-model-qc-1.3.2"
 save_freeze_dir = "./freeze-model-qc-1.2.1"
 # save_freeze_dir = "./freeze-model-zhedang-2.3"
 # save_freeze_dir = "./freeze-model-zhedang-2.3.1"
@@ -37,13 +38,6 @@ def show_image(img_path):
     plt.imshow(img)
     plt.show()
 
-def infer(image_path):
-    tensor_img = read_image(image_path)
-    label = exe.run(inference_program, feed={feed_target_names[0]: tensor_img}, fetch_list=fetch_targets)
-    np.set_printoptions(suppress=True)
-    print(label)
-    return np.argmax(label), label[0][0][np.argmax(label)]
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -56,7 +50,8 @@ if __name__ == '__main__':
         label_dict[s[0]] = s[1]
 
     result_label, result = infer(args.img_path)
-    print('predict result is ' + str(result_label) + ' ' + label_dict[str(result_label)] + ': ' + str(result))
+    np.set_printoptions(suppress=True)
+    print('predict result is ' + str(result_label) + ' ' + label_dict[str(result_label)] + ': ' + str(result[np.argmax(result)]))
     show_image(args.img_path)
 
 

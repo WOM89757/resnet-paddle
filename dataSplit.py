@@ -6,9 +6,10 @@ import shutil
 from time import process_time_ns
 from PIL import Image
 
-train_ratio = 4.0 / 5
+train_ratio = 0.8
 
-dir_class = '../datasets/img3.2.1/'
+# dir_class = '../datasets/img3.2.1/'
+dir_class = '../datasets/img4.0/'
 
 train_image_dir = os.path.join(dir_class, "trainImageSet")
 if not os.path.exists(train_image_dir):
@@ -52,7 +53,6 @@ for name_dir in os.listdir(dir_class):
                         eval_file.write("{0}\t{1}\n".format(os.path.join(eval_image_dir, file), label_id))
                 except Exception as e:
                     pass
-                    # 存在一些文件打不开，此处需要稍作清洗
             label_id += 1
                 
 

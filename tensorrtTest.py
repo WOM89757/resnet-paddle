@@ -1,3 +1,4 @@
+from unicodedata import decimal
 import numpy as np
 import tensorrt as trt
 import pycuda.driver as cuda
@@ -25,10 +26,30 @@ def get_test_transform():
 
 from PIL import Image
 
+target_size = [3, 224, 224]
+mean_rgb = [127.5, 127.5, 127.5]
+
+def resize_img(img, target_size):
+    ret = img.resize((target_size[1], target_size[2]), Image.BILINEAR)
+    return ret
+def read_image(img_path):
+    img = Image.open(img_path)
+    print("img mode: {}".format(img.mode))
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    img = resize_img(img, target_size)
+    img = np.array(img).astype('float32')
+    img -= mean_rgb
+    img = img.transpose((2, 0, 1))  # HWC to CHW
+    img *= 0.007843
+    img = img[np.newaxis,:]
+    return img
 
 # image = Image.open('/home/wangmao/code/datasets/img3.2.1/test/chaodi03/chaodi03_image_267.jpg') # 289
 # image = Image.open('/home/wangmao/code/datasets/img3.2.1/train/chaodi03/chaodi03_image_267.jpg') # 289
-image = Image.open(sys.argv[1]) # 289
+# image = Image.open(sys.argv[1]) # 289
+img = read_image(sys.argv[1])
+
 # image.show()
 # img = np.array(image)
 # img = torch.from_numpy(img)
@@ -41,21 +62,22 @@ image = Image.open(sys.argv[1]) # 289
 # img = transforms.ToTensor()(img)
 # img = interpolate(img, size=[3, 224, 224], mode="bilinear", align_corners=None)
 
-img = get_test_transform()(image)
-img = img.unsqueeze_(0) # -> NCHW, 1,3,224,224
+# img = get_test_transform()(image)
+# img = img.unsqueeze_(0) # -> NCHW, 1,3,224,224
 print("plt:{}".format(img.shape))
 # print(img)
 
-imageop = cv2.imread('/home/wangmao/code/datasets/img3.2.1/train/chaodi03/chaodi03_image_8.jpg')
-
+imageop = cv2.imread(sys.argv[1])
+imgop = imageop
 imgop = cv2.cvtColor(imageop, cv2.COLOR_BGR2RGB) 
 # cv2.imshow("opencv", imageop)
 
 imgop = cv2.resize(imgop, (224, 224), Image.Resampling.BILINEAR)
-mean_rgb = [127.5, 127.5, 127.5]
 imgop = np.array(imgop).astype('float32')
 imgop -= mean_rgb
 imgop = imgop.transpose((2, 0, 1))  # HWC to CHW
+# imgop /=255
+# imgop /=0.5
 imgop *= 0.007843
 imgop = imgop[np.newaxis,:]
 print("opencv:{}".format(imgop.shape))
@@ -79,8 +101,9 @@ engine = runtime.deserialize_cuda_engine(f.read())      # 从文件中加载trt�
 context = engine.create_execution_context()             # 创建context
 
 # 4. 分配input和output内存
-# input_batch = img
-input_batch = to_numpy(img)
+# input_batch = imgop
+input_batch = img
+# input_batch = to_numpy(img)
 
 output = np.empty([BATCH_SIZE, 7], dtype = target_dtype)
 
@@ -123,8 +146,15 @@ pred = predict(preprocessed_inputs)
 # print(pred.shape)
 np.set_printoptions(suppress=True)
 
-print(pred)
+print('img tensor:', np.around(pred[0], 4))
 t = time.time() - t0
 
-print("Prediction: cost {:.4f}s".format(t))
+# print("Prediction: cost {:.4f}s".format(t))
 # print("Prediction: {} cost {:.4f}s".format(pred, t))
+input_batch = imgop
+preprocessed_inputs = np.array([input for input in input_batch])  # (BATCH_SIZE,224,224,3)——>(BATCH_SIZE,3,224,224)
+pred = predict(preprocessed_inputs)
+# print(pred.shape)
+# np.set_printoptions(suppress=True)
+# np.set_printoptions(precision=3)
+print('img opencv: {}'.format(np.around(pred[0], 4)))
