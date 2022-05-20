@@ -3,8 +3,9 @@ from train import *
 from paddle.fluid.initializer import MSRA
 from paddle.fluid.initializer import Uniform
 from paddle.fluid.param_attr import ParamAttr
+import paddle.nn as nn
 
-class ResNet(object):
+class ResNet(nn.Layer):
     """
     resnet的网络结构类
     """
@@ -14,6 +15,8 @@ class ResNet(object):
         resnet的网络构造函数
         :param layers: 网络层数
         """
+        super(ResNet, self).__init__()
+
         self.layers = layers
 
     def name(self):

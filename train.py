@@ -12,13 +12,13 @@ import numpy as np
 import time
 import math
 import paddle
+import paddle.nn as nn
 import paddle.fluid as fluid
 import codecs
 from resNet50 import ResNet
 from visualdl import LogWriter
 
 from utils import *
-from eval import eval_all
 
 
 train_parameters = {
@@ -29,8 +29,9 @@ train_parameters = {
     "data_dir": "../datasets/img4.0/",  # 训练数据存储地址
     "train_file_list": "train.txt",
     "label_file": "label_list.txt",
-    "save_freeze_dir": "./freeze-model-qc-1.3.2",
-    "save_persistable_dir": "./persistable-params-qc-1.3.2",
+    "save_name": "qc-1.3.3",
+    "save_freeze_dir": "./freeze-model-qc-1.3.3",
+    "save_persistable_dir": "./persistable-params-qc-1.3.3",
     "continue_train": True,        # 是否接着上一次保存的参数接着训练，优先级高于预训练模型
     "pretrained": True,            # 是否使用预训练的模型
     "pretrained_dir": "./ResNet50_pretrained",
@@ -98,8 +99,6 @@ def init_train_parameters():
         train_parameters['image_count'] = len(lines)
 
 def train(logger):
-    train_prog = fluid.Program()
-    train_startup = fluid.Program()
     logger.info("create prog success")
     logger.info("train config: %s", str(train_parameters))
     logger.info("build input custom reader and data feeder")
@@ -140,8 +139,13 @@ def train(logger):
     main_program = fluid.default_main_program()
     exe.run(fluid.default_startup_program())
     train_fetch_list = [avg_cost.name, acc_top1.name, out.name]
-    
-    load_params(exe, main_program, train_parameters)
+
+    save_freeze_dir = train_parameters['save_name'] + "/freeze/"
+    save_persistables_dir = train_parameters['save_name'] + "/persistables/"
+    save_best_freeze_dir = train_parameters['save_name'] + "/best_freeze/"
+    save_best_persistables_dir = train_parameters['save_name'] + "/best_persistables/"
+
+    load_params(exe, main_program, train_parameters, save_persistables_dir, train_parameters['pretrained_dir'])
 
     stop_strategy = train_parameters['early_stop']
     successive_limit = stop_strategy['successive_limit']
@@ -151,7 +155,10 @@ def train(logger):
     stop_train = False
     total_batch_count = 0
     best_acc = 0.95
-    writer = LogWriter(logdir="./log/" + train_parameters['save_freeze_dir'].rsplit("/", 1)[1])
+    val_best_acc = 0
+    val_lower_count = 0
+    writer = LogWriter(logdir= "./log/" + train_parameters['save_name'])
+
     for pass_id in range(train_parameters["num_epochs"]):
         logger.info("current pass: %d, start read image", pass_id)
         batch_id = 0
@@ -180,10 +187,10 @@ def train(logger):
                 logger.info("Pass {0}, trainbatch {1}, loss {2}, acc1 {3}, time {4}".format(pass_id, batch_id, loss, acc1,
                                                                                             "%2.2f sec" % period))
                     
-            if True and acc1 >= good_acc1:
+            if False and acc1 >= good_acc1:
                 successive_count += 1
                 logger.info("current acc1 {0} meets good {1}, successive count {2}".format(acc1, good_acc1, successive_count))
-                fluid.io.save_inference_model(dirname=train_parameters['save_freeze_dir'],
+                fluid.io.save_inference_model(dirname= save_freeze_dir,
                                               feeded_var_names=['img'],
                                               target_vars=[out],
                                               main_program=main_program,
@@ -206,23 +213,21 @@ def train(logger):
 
             if total_batch_count % sample_freq == 0:
                 logger.info("temp save {0} batch train result, current acc1 {1}".format(total_batch_count, acc1))
-                fluid.io.save_persistables(dirname=train_parameters['save_persistable_dir'],
+                fluid.io.save_persistables(dirname=save_persistables_dir,
                                            main_program=main_program,
                                            executor=exe)
-            if False and acc1 > best_acc:
+            if True and acc1 > best_acc:
                 best_acc = acc1
                 logger.info("best save {0} batch train result, current acc1 {1}".format(total_batch_count, acc1))
-                best_model_name = '{}-best-acc-{}-loss-{}'.format(train_parameters['save_persistable_dir'], acc1, loss)
-                print(best_model_name)
-                # fluid.io.save_persistables(dirname=best_model_name,
-                #                            main_program=main_program,
-                #                            executor=exe)
-                # fluid.io.save_inference_model(dirname=train_parameters['save_freeze_dir'],
-                #                             feeded_var_names=['img'],
-                #                             target_vars=[out],
-                #                             main_program=main_program,
-                #                             executor=exe)
-        
+
+                fluid.io.save_persistables(dirname=save_best_persistables_dir,
+                                           main_program=main_program,
+                                           executor=exe)
+                fluid.io.save_inference_model(dirname=save_best_freeze_dir,
+                                            feeded_var_names=['img'],
+                                            target_vars=[out],
+                                            main_program=main_program,
+                                            executor=exe)
 
 
         epoch_loss = np.mean(np.array(epoch_loss))
@@ -233,6 +238,7 @@ def train(logger):
         logger.info("Pass {0}, trainbatch {1}, avg: loss {2}, acc1 {3}".format(pass_id, batch_id, epoch_loss, epoch_acc))
         val_acc = []
         val_loss = []
+
         # vaildation
         val_batch_reader = paddle.batch(custom_image_reader(val_file_list, train_parameters['data_dir'], 'val', train_parameters),
                                 batch_size=train_parameters['train_batch_size'],
@@ -251,34 +257,32 @@ def train(logger):
         writer.add_scalar(tag="epoch_val/acc", step=pass_id, value=val_acc)
         writer.add_scalar(tag="epoch_val/loss", step=pass_id, value=val_loss)
         logger.info("Pass {0}, valbatch {1}, avg: loss {2}, acc1 {3}".format(pass_id, batch_id, val_loss, val_acc))
-        
-        # save_train_persistable_path = 'train/' + train_parameters['save_persistable_dir'] + '/' + str(pass_id)
-        # save_train_freeze_path = 'train/' + train_parameters['save_freeze_dir'] + '/' + str(pass_id)
-        # fluid.io.save_persistables(dirname= save_train_persistable_path,
-        #                                     main_program=main_program,
-        #                                     executor=exe)
-        # fluid.io.save_inference_model(dirname= save_train_freeze_path,
-        #                                         feeded_var_names=['img'],
-        #                                         target_vars=[out],
-        #                                         main_program=main_program,
-        #                                         executor=exe)
-        fluid.io.save_persistables(dirname=train_parameters['save_persistable_dir'],
-                                           main_program=main_program,
-                                           executor=exe)
-        fluid.io.save_inference_model(dirname=train_parameters['save_freeze_dir'],
+        if pass_id == 0:
+            val_best_acc = val_acc
+            best_acc = epoch_acc
+        if val_best_acc > val_acc:
+            val_lower_count += 1
+        else:
+            val_lower_count = 0
+        if val_lower_count > 9:
+            stop_train = True
+            print('epcho {} overfitting break'.format(pass_id))
+        fluid.io.save_persistables(dirname= save_persistables_dir,
+                                            main_program=main_program,
+                                            executor=exe)
+        fluid.io.save_inference_model(dirname= save_freeze_dir,
                                                 feeded_var_names=['img'],
                                                 target_vars=[out],
                                                 main_program=main_program,
                                                 executor=exe)
-
         if stop_train:
             break
 
     logger.info("training till last epcho, end training")
-    fluid.io.save_persistables(dirname=train_parameters['save_persistable_dir'],
+    fluid.io.save_persistables(dirname=save_persistables_dir,
                                            main_program=main_program,
                                            executor=exe)
-    fluid.io.save_inference_model(dirname=train_parameters['save_freeze_dir'],
+    fluid.io.save_inference_model(dirname=save_freeze_dir,
                                               feeded_var_names=['img'],
                                               target_vars=[out],
                                               main_program=main_program,

@@ -32,11 +32,28 @@ paddle.enable_static()
 [inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(dirname=save_freeze_dir, executor=exe)
 # print(fetch_targets)
 
+# prog = paddle.load("train/weight/qc-1.3.3-best.pdparams.pdparams")
+# layer_state_dict = paddle.load("train/weight/qc-1.3.3-best.pdparams.pdparams")
+# prog.set_state_dict(layer_state_dict)
+# layer_state_dict = paddle.load("train/weight/qc-1.3.3-best.pdparams")
+# print(layer_state_dict)
+# sys.exit()
+# path_prefix = "train/infer_model/"
+# [inference_program, feed_target_names, fetch_targets] = (paddle.static.load_inference_model(path_prefix, exe))
+
+
 def show_image(img_path):
     img = Image.open(img_path)
     plt.figure(img_path)
     plt.imshow(img)
     plt.show()
+
+def ninfer(image_path):
+    tensor_img = read_image(image_path)
+    results = exe.run(inference_program,
+                feed={feed_target_names[0]: tensor_img},
+                fetch_list=fetch_targets)
+    return np.argmax(results), results[0][0]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -50,6 +67,7 @@ if __name__ == '__main__':
         label_dict[s[0]] = s[1]
 
     result_label, result = infer(args.img_path)
+    # result_label, result = ninfer(args.img_path)
     np.set_printoptions(suppress=True)
     print('predict result is ' + str(result_label) + ' ' + label_dict[str(result_label)] + ': ' + str(result[np.argmax(result)]))
     show_image(args.img_path)

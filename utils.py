@@ -272,16 +272,16 @@ def init_log_config():
     logger.addHandler(fh)
     return logger
 
-def load_params(exe, program, train_parameters):
-    if train_parameters['continue_train'] and os.path.exists(train_parameters['save_persistable_dir']):
+def load_params(exe, program, train_parameters, save_persistable_dir, pretrained_dir):
+    if train_parameters['continue_train'] and os.path.exists(save_persistable_dir):
         logger.info('load params from retrain model')
         fluid.io.load_persistables(executor=exe,
-                                   dirname=train_parameters['save_persistable_dir'],
+                                   dirname=save_persistable_dir,
                                    main_program=program)
-    elif train_parameters['pretrained'] and os.path.exists(train_parameters['pretrained_dir']):
+    elif train_parameters['pretrained'] and os.path.exists(pretrained_dir):
         logger.info('load params from pretrained model')
         def if_exist(var):
-            return os.path.exists(os.path.join(train_parameters['pretrained_dir'], var.name))
+            return os.path.exists(os.path.join(pretrained_dir, var.name))
 
-        fluid.io.load_vars(exe, train_parameters['pretrained_dir'], main_program=program,
+        fluid.io.load_vars(exe, pretrained_dir, main_program=program,
                            predicate=if_exist)

@@ -11,3 +11,4 @@ log
 *cache*
 ResNet50_pretrained
 model/*
+qc-*/
